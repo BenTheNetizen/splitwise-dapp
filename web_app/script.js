@@ -159,9 +159,10 @@ var abi = [
 abiDecoder.addABI(abi);
 // call abiDecoder.decodeMethod to use this - see 'getAllFunctionCalls' for more
 
-var contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // FIXME: fill this in with your contract's address/hash
+var contractAddress = "0x5fbdb2315678afecb367f032d93f642f64180aa3"; // FIXME: fill this in with your contract's address/hash
 
 var BlockchainSplitwise = new ethers.Contract(contractAddress, abi, provider.getSigner());
+BlockchainSplitwise.connect(provider.getSigner(defaultAccount))
 
 // =============================================================================
 //                            Functions To Implement
@@ -182,17 +183,18 @@ async function getNeighbors(user) {
 // TODO: Return a list of all users (creditors or debtors) in the system
 // All users in the system are everyone who has ever sent or received an IOU
 async function getUsers() {
+	// WORKS
 	return await BlockchainSplitwise.getUsers();
 }
 
 // TODO: Get the total amount owed by the user specified by 'user'
 async function getTotalOwed(user) {
+	// WORKS
 	let total = 0;
 	let users = await getUsers();
 	for (let i = 0; i < users.length; i++) {
 		total += await BlockchainSplitwise.lookup(user, users[i]);
 	}
-	console.log(`Total owed by ${user} is ${total}`);
 	return total;
 }
 
@@ -200,45 +202,15 @@ async function getTotalOwed(user) {
 // Return null if you can't find any activity for the user.
 // HINT: Try looking at the way 'getAllFunctionCalls' is written. You can modify it if you'd like.
 async function getLastActive(user) {
-	var curBlock = await provider.getBlockNumber(); // gets block number of most recent block
-	var last_active = null;
-
-	while (curBlock !== GENESIS) {
-		var block = await provider.getBlockWithTransactions(curBlock);
-		var txns = block.transactions; // array of TransactionResponse objects
-
-		for (var j = 0; j < txns.length; j++) {
-			var txn = txns[j];
-
-			// check that destination of txn is our contract
-			if (txn.to == null) continue;
-
-			if (txn.to.toLowerCase() == contractAddress.toLowerCase() || txn.from.toLowerCase() == contractAddress.toLowerCase()) {
-				// decode the input data
-				var func_call = abiDecoder.decodeMethod(txn.data);
-
-				// check if the user is a creditor or debtor
-				if (func_call && func_call.name == "addDebt") {
-					var timeBlock = await provider.getBlock(curBlock);
-					var args = func_call.params.map((x) => x.value);
-					if (txn.from.toLowerCase() == user || args[0] == user) {
-						last_active = timeBlock.timestamp;
-						return last_active;
-					}
-				}
-			}
-		}
-		// iterate to next block
-		curBlock = block.parentHash;
-	}
-	return last_active;
-	// var functionCalls = await getAllFunctionCalls(contractAddress, 'addDebt'); //add_IOU broken
-	// functionCalls = functionCalls
-	// 	.filter((functionCall) => functionCall.from === user || functionCall.args[0] === user)
-	// 	.sort((a, b) => a.timestamp > b.timestamp);
-	// if (functionCalls.length > 0) 
-	// 	return functionCalls[0].timestamp
-	// return null
+	// WORKS
+	var functionCalls = await getAllFunctionCalls(contractAddress, 'addDebt'); //add_IOU broken
+	user = user.toLowerCase()
+	functionCalls = functionCalls
+		.filter((functionCall) => functionCall.args[0].toLowerCase() === user || functionCall.args[1].toLowerCase() === user) // for addDebt
+		// .filter((functionCall) => functionCall.from == user || functionCall.args[0] == user) // for add_IOU
+		.sort((a, b) => a.t > b.t);
+	if (functionCalls.length > 0) return functionCalls[0].t
+	return null
 }
 
 // TODO: add an IOU ('I owe you') to the system
@@ -247,6 +219,7 @@ async function getLastActive(user) {
 async function add_IOU(creditor, amount) {
 
 	var path = await doBFS(creditor, defaultAccount, getNeighbors);
+	console.log(path);
 	var min_debt = 0;
 	if (path != null) {
 		min_debt = amount;
@@ -254,17 +227,21 @@ async function add_IOU(creditor, amount) {
 		for (var i = 0; i < path.length - 1; i++) {
 			min_debt = Math.min(min_debt, await BlockchainSplitwise.lookup(path[i], path[i + 1]));
 		}
-
+		console.log(`Minimum debt is ${min_debt}`);
 		// subtract the minimum debt from the path
-		for (var i = 0; i < path.length - 1; i++) {
+		var i;
+		for (i = 0; i < path.length - 1; i++) {
+			console.log(`Subtracting ${min_debt} from ${path[i]} to ${path[i + 1]}...`)
 			await BlockchainSplitwise.subtractDebt(path[i], path[i + 1], min_debt);
 		}
 	}
 
 	// add the remaining debt
 	console.log(`Adding IOU of ${amount - min_debt} from ${creditor} to ${defaultAccount}...`);
-	// await BlockchainSplitwise.add_IOU(creditor, amount - min_debt);
-	await BlockchainSplitwise.addDebt(defaultAccount, creditor, amount - min_debt);
+	
+	if (amount - min_debt > 0) {
+		await BlockchainSplitwise.addDebt(defaultAccount, creditor, amount - min_debt);
+	}
 }
 
 
@@ -450,4 +427,4 @@ async function sanityCheck() {
 	console.log("Final Score: " + score +"/21");
 }
 
-// sanityCheck() //Uncomment this line to run the sanity check when you first open index.html
+sanityCheck() //Uncomment this line to run the sanity check when you first open index.html

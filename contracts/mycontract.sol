@@ -9,6 +9,7 @@ contract Splitwise {
     // DO NOT MODIFY ABOVE THIS
 
     // ADD YOUR CONTRACT CODE BELOW
+    
 
     address[] public users;
     mapping (address => mapping (address => uint32)) public debts;
@@ -20,12 +21,13 @@ contract Splitwise {
 
     function add_IOU(address creditor, uint32 amount) public {
         require(amount > 0, "Amount must be greater than 0");
-        console.log("Adding debt of %s from %s to %s", amount, msg.sender, creditor);
+        require(creditor != msg.sender, "Creditor cannot be the same as debtor");
         addDebt(msg.sender, creditor, amount);
     }
 
     function addDebt(address debtor, address creditor, uint32 amount) public {
         require(amount > 0, "Amount must be greater than 0");
+        require(creditor != debtor, "Creditor cannot be the same as debtor");
         debts[debtor][creditor] += amount;
         addUser(debtor);
         addUser(creditor);
