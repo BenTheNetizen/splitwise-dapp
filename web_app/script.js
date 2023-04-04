@@ -203,11 +203,11 @@ async function getTotalOwed(user) {
 // HINT: Try looking at the way 'getAllFunctionCalls' is written. You can modify it if you'd like.
 async function getLastActive(user) {
 	// WORKS
-	var functionCalls = await getAllFunctionCalls(contractAddress, 'addDebt'); //add_IOU broken
+	var functionCalls = await getAllFunctionCalls(contractAddress, 'add_IOU'); //add_IOU broken
 	user = user.toLowerCase()
 	functionCalls = functionCalls
-		.filter((functionCall) => functionCall.args[0].toLowerCase() === user || functionCall.args[1].toLowerCase() === user) // for addDebt
-		// .filter((functionCall) => functionCall.from == user || functionCall.args[0] == user) // for add_IOU
+		// .filter((functionCall) => functionCall.args[0].toLowerCase() === user || functionCall.args[1].toLowerCase() === user) // for addDebt
+		.filter((functionCall) => functionCall.from == user || functionCall.args[0] == user) // for add_IOU
 		.sort((a, b) => a.t > b.t);
 	if (functionCalls.length > 0) return functionCalls[0].t
 	return null
@@ -238,9 +238,8 @@ async function add_IOU(creditor, amount) {
 
 	// add the remaining debt
 	console.log(`Adding IOU of ${amount - min_debt} from ${creditor} to ${defaultAccount}...`);
-	
 	if (amount - min_debt > 0) {
-		await BlockchainSplitwise.addDebt(defaultAccount, creditor, amount - min_debt);
+		await BlockchainSplitwise.add_IOU(creditor, amount - min_debt);
 	}
 }
 
@@ -427,4 +426,4 @@ async function sanityCheck() {
 	console.log("Final Score: " + score +"/21");
 }
 
-sanityCheck() //Uncomment this line to run the sanity check when you first open index.html
+// sanityCheck() //Uncomment this line to run the sanity check when you first open index.html
